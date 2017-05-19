@@ -1,0 +1,13 @@
+## 另外,可将过滤配置文件放在用户目录下, 需执行 git config --global core.excludesfile ~/.gitignore 来写入全局配置.gitconfig使得它全局生效。##
+## 执行: git config --global core.autocrlf false 禁止自动转换换行符, 可去除 warning: LF will be replaced by CRLF 的警告提示 ##
+##局部和全局过滤配置可同时生效##
+node_modules/
+dist/
+dest/
+*.zip
+*.rar
+*.7z
+npm-debug.log
+.project
+.DS_Store
+download/
