@@ -4,7 +4,7 @@
     工具类
   */
   class K {
-    static $showTip = 'true';
+     public static $showTip = 'true';
      public static $showLog = 'true';
 
   /* 1 字符串处理 S */
@@ -23,18 +23,15 @@
     }
 
     //检测匹配多个字符串与正则;
-    public static function match($regs, $strs){
+    public static function match($regs, $str){
       $regs = self::toArray($regs);
-      $strs = self::toArray($strs);
       foreach($regs as $reg){
-        foreach($strs as $str){
-          if( preg_match( $reg, $str,$matches ) ){
-            return array(
-              'reg' => $reg,
-              'str' => $str,
-              'matches' => $matches
-            );
-          }
+        if( preg_match( $reg, $str,$matches ) ){
+          return array(
+            'reg' => $reg,
+            'str' => $str,
+            'matches' => $matches
+          );
         }
       }
       return false;
@@ -49,11 +46,16 @@
     }
 
     // 匹配文本并替换,  通用方法
-    public static function gettext ($str='', $reg='', $replace=[]){
+    public static function gettext ($str='', $reg='', $replace=[], $ignore=[]){
       $result = '';
       if(preg_match( $reg ,$str, $matches)){
         $result = self::replace($replace , $matches[1]);
         $result = trim($result);
+      }      
+      if(count($ignore)>0){
+        if(self::match($ignore, $result)) {
+          return false;
+        };
       }
       return $result;
     }

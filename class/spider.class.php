@@ -6,6 +6,7 @@
   $dir = dirname(__FILE__);
   require_once($dir."/utils.class.php");
   require_once($dir."/db.class.php");
+  require_once($dir."/curl.class.php");
   class  Spider {
     private $config;                               //基本配置
     private $db;                               //数据库对象
@@ -14,11 +15,11 @@
     private $baseURL;                               //起始页面
     private $download;                               //下载目录
     private $options = array(                               //运行配置
-        'clear' => false,                               //是否清空下载目录
+        'clear' => true,                               //是否清空下载目录
         'rewriteDB' => true,                               //是否覆盖数据库相同记录
-        'rewriteFile' => false,                               //是否覆盖本地相同文件
+        'rewriteFile' => true,                               //是否覆盖本地相同文件
         'ifDownload' => true,                     //是否保存本地
-        'ifUploadDB' => true,                     //是否上传数据库
+        'ifUploadDB' => false,                     //是否上传数据库
     );
 
   /* 1 初始化 S */
@@ -27,21 +28,17 @@
       $this->config = $config;
       $this->baseURL = $config['base'];
       $this->download = $config['download'];
-      $this->ignore = $config['rule']['ignore'];
+      $this->ignore = $config['ignore'];
+      $this->curl = new KS_curl();
       $this->errorTxt = $this->download.'/error.txt';
       $this->detailTxt = $this->download.'/detail.txt';
       $this->init();
     }
     //初始化运行环境
     function init(){
-      set_time_limit(0);
+      set_time_limit(0);//设置允许脚本运行的时间，单位为秒 ,如果设置为0，没有时间方面的限制。
      // ob_end_clean();
       echo str_pad('', 1024); // 设置足够大，受output_buffering影响
-      //验证curl模块
-      if(!function_exists('curl_init')){
-        K::tipE('<i color="red" id="over">致命: 执行失败!请先安装curl扩展!</i>');
-        exit;
-      }
       //验证url合法性
       if(!preg_match('/^https?:\/\/[a-zA-Z0-9\-\.]+/i', $this->baseURL)){
         K::tipE('<i color="red" id="over">致命: 执行失败!目标站点URL地址不合法!</i>');
@@ -55,7 +52,7 @@
         $this->db = new Db($this->config['DBhost']);
       }
       if($this->options['ifDownload']){
-        $this->initDownloadFolder();
+        $this->initDownload();
       }
     }
 
@@ -135,7 +132,7 @@
         $folder = $record['currFolder'];
         $title = $this->getPageTitle($string);
         if(!$title) {
-          $this->logError('没有获取到页面标题, URL: '.$url);
+          $this->logError('没有获取到页面标题或在忽略列表中, URL: '.$url);
           return;
         }else{
           $currDir = $dir.'/'.$title;
@@ -198,6 +195,7 @@
   /* 3 保存||上传 */
     private function save($rule, $record, $string){
       $data = $this->getFileData($rule, $record, $string);
+      if(!$data) return;
       if($this->options['ifDownload']) {
         $this->download($rule, $record, $data['string']);
       }
@@ -285,13 +283,13 @@
   /* 4 上传数据库 E */
   /* 5 保存本地 S  */
     //初始化根目录
-    private function initDownloadFolder(){
+    private function initDownload(){
       if(!$this->options['ifDownload']) return;
       if($this->options['clear']){
         if(K::rmdir($this->download)){
-          K::tipS( "清空".$this->download);
+          K::tipS( "清空根目录".$this->download);
         }else{
-          K::tipE( "清空".$this->download);
+          K::tipE( "清空根目录".$this->download);
         };
       }
       //新建保存目录//
@@ -317,7 +315,9 @@
       //获取文件名及其后缀 ,如果此文件存在，则不再获取
       $path = $this->getFilePath($record['currUrl'], $record['currDir']);
       if(!$path) return;;
-      if(!K::save($data,$path)){
+      if(K::save($data,$path)){
+        K::tipS("写入文件 ".$path);
+      }else{
         $this->logError("写入文件 ".$path);
       };
       echo('<br>');
@@ -325,52 +325,22 @@
     }
   /* 5 保存本地 E  */
   /* 6 获取数据 S */
-    // 通过 curl 获取内容
-    private function getCurl($url, $cookie="", $post=""){
-      //初始化curl
-      $curl = curl_init($url);
-      curl_setopt_array($curl, array(
-        CURLOPT_TIMEOUT => '30', //超时 30s
-        CURLOPT_USERAGENT =>"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.122 Safari/534.30", //user-agent头
-        CURLOPT_RETURNTRANSFER => TRUE, //返回文件流
-        CURLOPT_HEADER => 0, //关闭头文件数据流输出
-        //CURLOPT_COOKIEJAR => $cookie //设置Cookie信息保存在指定的文件中 
-        //CURLOPT_POST => 1,  //是否以POST方式提交
-        //CURLOPT_POSTFIELDS : http_build_query($post)//要提交的信息 
-        CURLOPT_SSL_VERIFYPEER => FALSE, //禁止服务端验证
-        CURLOPT_FOLLOWLOCATION => 3, //允许重定向,避免302;
-        // CURLOPT_HTTPHEADER => array( //设置 token
-        //   "cache-control: no-cache",
-        //   "postman-token: c13c9f1a-fce6-7ec8-4c91-3f13bd233284"
-        // )
-      ));
-      //请求栏目url
-      $exec = curl_exec($curl);
-      //HTTP 状态码
-      $httpStatus = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-      //耗时
-      $totaltime = curl_getinfo($curl, CURLINFO_TOTAL_TIME);
-      if($httpStatus == 200 && $exec){
-        K::tipS( '进入页面，  URL: ' . $url .' 耗时:'. $totaltime .'秒');
-      }else{
-        $this->logError('进入页面， URL : '. $url.' 错误码:[ '. $httpStatus.' ]');
-        return false;
-      }
-      curl_close($curl);
-      flush();
-      return $exec;
-    }
-    // 通过 getCurl 获取页面内容
+    // 通过 curl 获取页面内容
     private function getString($rule, $record){
       $url = $record['currUrl'];
       $dir = $record['currDir'];
-      $exec = $this->getCurl($url);
-      if(!$exec) return false;
+      $string = $this->curl->get($url);
+      if($string) {
+        K::tipS('进入页面'.$url);
+      }else{
+        K::tipE('进入页面'.$url);
+        return false;
+      }
       //是否转码
       if(isset($this->config['charset']) && strtoupper($this->config['charset']) =='GBK'){
-        $exec = iconv('GBK', 'UTF-8', $exec);
+        $string = iconv('GBK', 'UTF-8', $string);
       }
-      return $exec;
+      return $string;
     }
     // 获取所需数据
     private function getFileData($rule,$record, $stringData){ 
@@ -388,10 +358,16 @@
           }else{
             $replace = [];
           }
+          if(isset($value['ignore'])){
+            $ignore = $value['ignore'];
+          }else{
+            $ignore = [];
+          }
           $reg = $value['reg'];
           $replace = array_merge($this->config['replaceGlobal'], $replace);
           $name = $value['name'];
-          $text = K::gettext($stringData, $value['reg'], $replace);
+          $text = K::gettext($stringData, $value['reg'], $replace, $ignore);
+          if(!$text) return false;
           $string .= '{{ '.$name.' || '.$text.' }}'."\r\n";
           $array[$name] = $text;
         }

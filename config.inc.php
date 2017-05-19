@@ -3,8 +3,7 @@
   $CONFIG = array(
         'download' => './download',    //保存文件夹
         'replaceGlobal' => array("{人人}" => "奇睿", '{微擎}' => '奇睿'), //全局替换
-        'replaceLink' => array(
-        "{^\/}" => "http://wiki.we7shop.cn/"), //链接替换
+        'replaceLink' => array( "{^\/}" => "http://wiki.we7shop.cn/"), //链接替换
         'pageTitle' => '{<title>([^<]+?)<\/title>}is', //匹配页面title ,用于设置层级目录
         'replacePageTitle' => array( //页面title替换
             "{[\\\/\-\r\s\n\'\"\<\>\?\:\*\|]+}" => ' ',
@@ -13,11 +12,11 @@
         ), 
 
         'base' => 'http://wiki.we7shop.cn/hc/kb/category/22414/', //根页面
+        'ignore' => [], //全局忽略
         
         //抓取规则
         'rule' => array(
             'type' => 'index',   //类型: 主页
-            'ignore' => [], //全局忽略
             'charset' => 'UTF-8', //页面编码
             'subReg' => '{<a[^>]+?href\=\"([^\"]+?\/section\/[^\"]+?)\"[^>]*?>}is', //下一层级[纵向]
             'nextReg' => '{<a[^>]+?href\=\"(https:\/\/[^\"]+?)\"[^>]*?>下一页<\/a>}is', //下一页[横向]
@@ -35,12 +34,15 @@
                             'reg' => '{<header\sclass\=\"article\-header\">[^<]+?<h2>([^<]+?)<\/h2>}is'
                         ),
                         array(
-                            'name' => 'content'
-                            ,'reg' => '{<div\sclass\=\"article\-content\">(?!<\!--<footer\sclass\=\"article\-footer\")(.*?)<\!--<footer\sclass\=\"article\-footer\"}is'
-                            ,'replace' => array(
+                            'name' => 'content', //1. data的[属性名]
+                            'reg' => '{<div\sclass\=\"article\-content\">(?!<\!--<footer\sclass\=\"article\-footer\")(.*?)<\!--<footer\sclass\=\"article\-footer\"}is', //2.匹配内容
+                            'replace' => array( //3.替换内容
                                 '{\s\=\"\/hc\/}' => ' =\"http://wiki.we7shop.cn/hc/',
                                 '{<a\s+[^>]+?>}' => '',
-                                '{<img\s+[^>]+?>}' => ''
+                                '{<img\s[^>]+?>}is' => ''
+                            ),
+                            'ignore' => array( //4.忽略条件
+                                '{^.{0,300}$}is'       //例如: 最小100字 //utf8中 汉字=3字节
                             )
                         )
                     ),  
@@ -74,7 +76,7 @@
                 '{^积分商城$}' => 4,
                 '{^短信提醒$}' => 5,
                 '{^整点秒杀$}' => 13,
-                '/^.{4,30}$/is' => 14
+                '/^.{4,30}$/is' => 14 //utf8中 汉字=3字节
             )
         ),
         //数据库写入配置
