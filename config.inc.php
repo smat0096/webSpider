@@ -37,7 +37,7 @@
                             'reg' => '{<div\sclass\=\"article\-content\">(?!<\!--<footer\sclass\=\"article\-footer\")(.*?)<\!--<footer\sclass\=\"article\-footer\"}is', //2.匹配内容
                             'replace' => array( //3.替换内容
                                 '{\s\=\"\/hc\/}' => ' =\"http://wiki.we7shop.cn/hc/',
-                                '{<a\s+[^>]+?>[^>]+?<\/a>}' => '',
+                                '{<a\s+[^>]+?>.+?<\/a>}is' => '',
                                 '{<img\s[^>]+?>}is' => '',
                                 '{http\:\/\/s\.we7\.cc\/}is' => ''
                             ),
