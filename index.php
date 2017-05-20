@@ -55,7 +55,7 @@ if(isset($_POST['submit'])){
         //补填表单;
         var form = document.getElementsByTagName('form')[0];
         var config = <?php echo json_encode($CONFIG); ?> ;        
-        form.base.value = config.base;
+        form.base.value = config.baseURL;
         // for(var key in config){
         //     if(key == 'titletrim'){config[key] = config[key].join(',')}
         //     form[key].value = config[key];

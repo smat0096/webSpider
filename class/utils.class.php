@@ -74,7 +74,7 @@
             return false;
           } 
       }else{
-          self::tipW('文件夹已存在: '.$path);
+          self::tipP('文件夹已存在: '.$path);
           return true;
       }
     }

@@ -28,7 +28,7 @@
     function __construct($option=[]) {
       //验证curl模块
       if(!function_exists('curl_init')){
-        echo '执行失败!请先安装curl扩展!';
+        echo '错误!请先安装curl扩展!!!';
         exit;
       }
       $this->curl = curl_init();
@@ -67,14 +67,15 @@
     public function set($array){
       curl_setopt_array($this->curl,$array);
     }
-    public function get($url){
+    public function get($url=''){
+      if(!preg_match('/^https?:\/\/[a-zA-Z0-9\-\.]+/i',$url)) return false;
       $result = curl_setopt($this->curl, CURLOPT_URL, $url); //设置url
       $result = curl_exec($this->curl); //执行curl
       $httpStatus = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);//HTTP 状态码
       if($httpStatus == 200){
         return $result;
       }else{
-        echo $url.'curl错误: '.curl_error($curl);
+        echo $url.'curl错误: '.curl_error($this->curl);
         return false;
       }
     }

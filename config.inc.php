@@ -1,19 +1,18 @@
 <?php
   //爬虫配置信息
   $CONFIG = array(
-        'download' => './download',    //保存文件夹
+        'baseDL' => './download',    //保存根目录
+        'charsetDL' => 'GBK',       //文件系统编码 ,windows中文简体为GBK
+        'baseURL' => 'http://wiki.we7shop.cn/hc/kb/category/22414/', //根页面
         'replaceGlobal' => array("{人人}" => "奇睿", '{微擎}' => '奇睿'), //全局替换
-        'replaceLink' => array( "{^\/}" => "http://wiki.we7shop.cn/"), //链接替换
-        'pageTitle' => '{<title>([^<]+?)<\/title>}is', //匹配页面title ,用于设置层级目录
-        'replacePageTitle' => array( //页面title替换
+        'replaceURL' => array( "{^\/}" => "http://wiki.we7shop.cn/"), //需抓取的链接替换,用于相对地址转绝对;
+        'regTitle' => '{<title>([^<]+?)<\/title>}is', //匹配页面title ,用于设置层级目录
+        'replaceTitle' => array( //页面title替换
             "{[\\\/\-\r\s\n\'\"\<\>\?\:\*\|]+}" => ' ',
             "{\s奇睿商城2\.0在线帮助系统\s奇睿商城在线帮助系统}is" => '',
             "{售前问题\s}is" => '',
-        ), 
-
-        'base' => 'http://wiki.we7shop.cn/hc/kb/category/22414/', //根页面
-        'ignore' => [], //全局忽略
-        
+        ),
+        'ignoreURL' => [], //需要忽略抓取链接;
         //抓取规则
         'rule' => array(
             'type' => 'index',   //类型: 主页
@@ -38,8 +37,9 @@
                             'reg' => '{<div\sclass\=\"article\-content\">(?!<\!--<footer\sclass\=\"article\-footer\")(.*?)<\!--<footer\sclass\=\"article\-footer\"}is', //2.匹配内容
                             'replace' => array( //3.替换内容
                                 '{\s\=\"\/hc\/}' => ' =\"http://wiki.we7shop.cn/hc/',
-                                '{<a\s+[^>]+?>}' => '',
-                                '{<img\s[^>]+?>}is' => ''
+                                '{<a\s+[^>]+?>[^>]+?<\/a>}' => '',
+                                '{<img\s[^>]+?>}is' => '',
+                                '{http\:\/\/s\.we7\.cc\/}is' => ''
                             ),
                             'ignore' => array( //4.忽略条件
                                 '{^.{0,300}$}is'       //例如: 最小100字 //utf8中 汉字=3字节
@@ -76,25 +76,24 @@
                 '{^积分商城$}' => 4,
                 '{^短信提醒$}' => 5,
                 '{^整点秒杀$}' => 13,
-                '/^.{4,30}$/is' => 14 //utf8中 汉字=3字节
+                '/^.{6,50}$/is' => 14 //utf8中 汉字=3字节
             )
         ),
         //数据库写入配置
         'DBtable' => array(
-            'dede_arctiny' => array(     //表名
+            'dede_arctiny' => array(     //表名 第一个为id自增的主表
                 'write' => array(          //需写入 字段名 键名:数据库字段名, 键值:来源属性名或常量值; 
-                    'o_url' => 'url',     //title, 键名:需写入的数据库字段名, 键值:来源于数组数据, 
+                    'o_url' => 'url',     // 主表不能用主键判断, 用url判断
                     'typeid' => 'typeid',  
-                    'senddate' => 'time',  
+                    'senddate' => 'time',  //每个表都添加时间戳,可以使update操作正确显示成功(原数据不变会返回影响行数0);
                     'sortrank' => 'time',  
                     'mid' => '1'   //注意: data中无此属性则使用此常量值,用于设定一些固定值, 注意防止冲突
                 ),
-                'return' => 'id',      //数据库操作后需返回值的字段名,可返回 [自增 id] 或 [影响行数 line]
-                'returnAs' => 'id'     //返回值写入data的属性名, 
+                'return' => 'id'      //数据库主表insert操作后返回主键id给data的属性名; 
             ),
             'dede_archives' => array(  
                 'write' => array(  
-                    'id' => 'id',
+                    'id' => 'id',  //重要 分表的主键必须是第一个,影响 update 操作判断;
                     'title' => 'title', 
                     'senddate' => 'time', 
                     'pubdate' => 'time', 
@@ -109,9 +108,10 @@
             ),
             'dede_addonarticle' => array(
                 'write' => array( 
+                    'aid' => 'id',
                     'body' => 'content',
                     'typeid' => 'typeid',
-                    'aid' => 'id'
+                    'senddate' => 'time'
                 )
             )
         )

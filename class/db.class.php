@@ -232,9 +232,10 @@ class Db
 			$sql="UPDATE {$this->table} SET {$data} {$this->options['where']};";
 			$this->Initialise_Options();
 			if(!$return){
-				if($this->db->exec($sql)){
+				$lines = $this->db->exec($sql);
+				if($lines){
 					$this->sql=$sql;
-					return true;
+					return $lines;
 				}else{
 					$this->errorInfo=$this->db->errorInfo();
 					return false;

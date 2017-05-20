@@ -13,25 +13,25 @@
     private $done = [];                               //已下载链接
     private $result = [];                               //已下载内容
     private $baseURL;                               //起始页面
-    private $download;                               //下载目录
+    private $baseDL;                               //下载根目录
     private $options = array(                               //运行配置
-        'clear' => true,                               //是否清空下载目录
-        'rewriteDB' => true,                               //是否覆盖数据库相同记录
-        'rewriteFile' => true,                               //是否覆盖本地相同文件
-        'ifDownload' => true,                     //是否保存本地
-        'ifUploadDB' => false,                     //是否上传数据库
+        'ifDownload' => false,                     //是否保存本地
+        'clearDL' => false,                               //是否清空下载目录
+        'updateDL' => false,                               //是否覆盖本地相同文件
+        'ifUpload' => true,                     //是否上传数据库
+        'clearDB' => true,                               //TOFIXED 是否清空数据库
+        'updateDB' => true,                               //是否覆盖数据库相同记录
     );
 
   /* 1 初始化 S */
     // 构造方法 初始化内部变量 
     function __construct($config) {
       $this->config = $config;
-      $this->baseURL = $config['base'];
-      $this->download = $config['download'];
-      $this->ignore = $config['ignore'];
-      $this->curl = new KS_curl();
-      $this->errorTxt = $this->download.'/error.txt';
-      $this->detailTxt = $this->download.'/detail.txt';
+      $this->baseURL = $config['baseURL'];
+      $this->baseDL = $config['baseDL'];
+      $this->ignoreURL = $config['ignoreURL'];
+      $this->errorTxt = $this->baseDL.'/error.txt';
+      $this->detailTxt = $this->baseDL.'/detail.txt';
       $this->init();
     }
     //初始化运行环境
@@ -48,7 +48,7 @@
     //配置运行参数 options
     private function pre_options($options){
       $this->options = array_merge($this->options, $options);
-      if($this->options['ifUploadDB']){
+      if($this->options['ifUpload']){
         $this->db = new Db($this->config['DBhost']);
       }
       if($this->options['ifDownload']){
@@ -58,17 +58,20 @@
 
     //[开始抓取,动态配置参数]
     function start($options = []){
+      $this->curl = new KS_curl();
       $this->pre_options($options);
       $record = array( //遍历路径记录
-        'currUrl' => $this->baseURL,//当前URL
-        'currDir' => $this->download, //当前文件夹路径
-        'currFolder' => $this->download, //当前文件夹名
-        'subUrl'=>[],   //sub历史url
-        'subDir'=>[], // sub历史dir
+        'currURL' => $this->baseURL,//当前URL
+        'currDIR' => $this->baseDL, //当前文件夹路径
+        'currFolder' => $this->baseDL, //当前文件夹名
+        'subURL'=>[],   //sub历史url
+        'subDIR'=>[], // sub历史dir
         'subFolder'=>[], //sub历史文件夹名
         'nextNum'=>0   //next递归次数;
       );
       $this->go($this->config['rule'],$record);
+      $this->curl = null;
+      unset($this->curl);
       K::tip('<center><font size="30" color="red" id="over">全部抓取结束</font></center>');
     }
   /* 1 初始化 E */
@@ -109,7 +112,7 @@
       //sleep(1);
       //
       //判断是否已抓取
-      $url = $record['currUrl'];
+      $url = $record['currURL'];
       if(in_array($url, $this->done)){
         K::tipW('该链接已抓取过了, URL: '.$url);
         return false;
@@ -120,8 +123,8 @@
 
     //获取sub页[子级页面],建立文件夹
     private function getSub($rule, $record,  $string){
-      $url = $record['currUrl'];
-      $dir = $record['currDir'];
+      $url = $record['currURL'];
+      $dir = $record['currDIR'];
       if(preg_match_all($rule['subReg'], $string, $links_result_array)){
         $links_result = $this->fillLink($links_result_array[1]);
         $totalnum = count($links_result);
@@ -135,13 +138,13 @@
           $this->logError('没有获取到页面标题或在忽略列表中, URL: '.$url);
           return;
         }else{
-          $currDir = $dir.'/'.$title;
-          if($this->options['ifDownload']) K::mkdir($currDir);
+          $currDIR = $dir.'/'.$title;
+          if($this->options['ifDownload']) K::mkdir($currDIR, $this->config['charsetDL']);
           $record = $this->set_record($record,array(
-            'currDir' => $currDir, 
+            'currDIR' => $currDIR, 
             'currFolder' => $title, 
-            'subUrl'=>$url, 
-            'subDir'=>$dir, 
+            'subURL'=>$url, 
+            'subDIR'=>$dir, 
             'subFolder'=>$folder 
           ));
         }
@@ -152,7 +155,7 @@
         //获取子页面
         foreach($links_result as $suburl){
           $record = $this->set_record($record,array(
-            'currUrl' => $suburl
+            'currURL' => $suburl
           ));
           $this->go ($rule['sub'], $record);
         }
@@ -164,8 +167,8 @@
 
     //获取next页[兄弟页面]
     private function getNext($rule, $record, $string){
-      $url = $record['currUrl'];
-      $dir = $record['currDir'];
+      $url = $record['currURL'];
+      $dir = $record['currDIR'];
       echo('<br><hr><br>');
       if(preg_match_all( $rule['nextReg'], $string, $links_result_array)){
         $links_result = $this->fillLink($links_result_array[1]);
@@ -183,7 +186,7 @@
 
         foreach($links_result as $nexturl){
           $record = $this->set_record($record,array(
-            'currUrl' => $nexturl
+            'currURL' => $nexturl
           ));
           $this->go( $rule, $record );
         }
@@ -199,9 +202,10 @@
       if($this->options['ifDownload']) {
         $this->download($rule, $record, $data['string']);
       }
-      if($this->options['ifUploadDB']){
+      if($this->options['ifUpload']){
         $this->upload($rule, $record, $data['array']);
       }
+      echo '<br>';
       flush();
     }
   /* 4 上传数据库 S */
@@ -237,46 +241,62 @@
     //上传到数据库,需随时修改
     private function uploadDB($data){
       $DBtables = $this->config['DBtable'];
+      $action ='insert';
       $index1 = 0;
-      $index2 = 0;
       $db = $this->db;
       foreach( $DBtables as $table_name => $table_rule){
-        $index1++;
-        $db = $db->table($table_name);
-        $write_data = [];
-        $export_name = '';
+        $isMain = $index1 ? false : true; //是否第一个主表
+        $index1 ++ ;
+        $index2 = 0;
+        $updata = [];
+        $key_name  = '';
+        $key_value = '';
         if(isset($table_rule['write'])){
-          $sql = '';
           foreach($table_rule['write'] as $fied_name => $data_name){
-            $isKey = $index2 ? false : true;
+            $isKey  = $index2 ? false : true;  //是否各个表的主键
             $index2++;
             //注意: data没有属性名为$data_name的值, 则使用$data_name为值,用于设定一些固定值
             $fied_value = isset($data[$data_name]) ? $data[$data_name] : $data_name;
             if($isKey){
-              $res = $db->where($fied_name."='{$fied_value}'")->count('id');
-              if($res){
-                K::tipW('该数据已存在,跳过 '.$fied_name.':[.'.$fied_value.'] ['.$res.']');
-                return;
+              $key_name  = $fied_name;
+              $key_value = $fied_value;
+              if($isMain){
+                //单条数据, 根据使用场景可更换为 select 多条数据模式;
+                $find = $db->table($table_name)->field('id')->where($key_name."='{$key_value}'")->find();
+                if($find){
+                  $mainId = $find['id']; //存在该数据,则获取id;
+                  if($this->options['updateDB']){
+                    $action = 'update';
+                  }else{
+                    K::tipW('该数据已存在,跳过 '.$key_name.':[.'.$key_value.'] ['.$mainId.']');
+                    return;
+                  }
+                }
               }
             }
-            $write_data[$fied_name] = $fied_value;
+            $updata[$fied_name] = $fied_value;
           }
         }
-        $db = $db->table($table_name)->data($write_data);
-        if(isset($table_rule['return'])){ //可返回 [自增 id] 或 [影响行数 line]
-          $return = $table_rule['return'];
-          $returnAs = $table_rule['returnAs'];
-          $return = $db->insert($return);
-          $data[$returnAs] = $return;
-        }else{
-          $return = $db->insert('line');
+        $db = $db->table($table_name)->data($updata);
+        switch($action){
+          case 'insert': 
+            $return = $isMain ? 'id' : 'line';//主表则返回id,副表返回影响行数
+            $return = $db->insert($return); 
+            if($isMain) $mainId = $return; //insert 主表返回id
+            break;
+          case 'update': 
+            $return = $db->where($key_name."='{$key_value}'")->update(); //update 都返回 line
+            break;
         }
+        $message = "DB操作: [ {$action} ],table:[{$table_name}][{$key_name}][{$key_value}]返回值:[{$return}] mainId:[{$mainId}]";
         if($return){
-          $message = $data['url'].'写入DB数据,table:['.$table_name.'] title:['.$data['title'].'] return:['.$return.']';
+          if(isset($table_rule['return'])) { //目前仅设置主表需返回id值
+            $data[$table_rule['return']] = $mainId;
+          }
           K::tipS($message);
-          K::log( $message, $this->download."/log.txt");
+          K::log( $message, $this->baseDL."/log.txt");
         }else{
-          $this->logError($data['url'].'写入DB数据,table:['.$table_name.']['.$data['title'].'] return:['.$return.']');
+          $this->logError($message);
         }
       }
     }
@@ -285,21 +305,21 @@
     //初始化根目录
     private function initDownload(){
       if(!$this->options['ifDownload']) return;
-      if($this->options['clear']){
-        if(K::rmdir($this->download)){
-          K::tipS( "清空根目录".$this->download);
+      if($this->options['clearDL']){
+        if(K::rmdir($this->baseDL)){
+          K::tipS( "清空根目录".$this->baseDL);
         }else{
-          K::tipE( "清空根目录".$this->download);
+          K::tipE( "清空根目录".$this->baseDL);
         };
       }
       //新建保存目录//
-      K::mkdir($this->download);
+      K::mkdir($this->baseDL);
     }
 
     // 获取页面title,用于设置保存目录
     private function getPageTitle ($str=''){
-      $replace = array_merge($this->config['replaceGlobal'], $this->config['replacePageTitle']);
-      $pageTitle = K::gettext($str, $this->config['pageTitle'],  $replace);
+      $replace = array_merge($this->config['replaceGlobal'], $this->config['replaceTitle']);
+      $pageTitle = K::gettext($str, $this->config['regTitle'],  $replace);
       return $pageTitle;
     }
 
@@ -313,22 +333,31 @@
     // 保存文件
     private function download($rule, $record, $data){
       //获取文件名及其后缀 ,如果此文件存在，则不再获取
-      $path = $this->getFilePath($record['currUrl'], $record['currDir']);
-      if(!$path) return;;
-      if(K::save($data,$path)){
+      $path = $this->getFilePath($record['currURL'], $record['currDIR']);
+      if(!$path) return;
+      $charSys = $this->config['charsetDL'];
+      $pathSys = strtoupper($charSys) =='GBK' ? iconv('UTF-8', 'GBK', $path) : $path;
+      if(file_exists($pathSys)){
+        if($this->options['updateDL']){
+          K::tipP('文件已存在,执行替换');
+        }else{
+          K::tipP('文件已存在,执行跳过');
+          return;
+        }
+      }
+      if(K::save($data,$path,$charSys)){
         K::tipS("写入文件 ".$path);
       }else{
         $this->logError("写入文件 ".$path);
       };
-      echo('<br>');
       flush();
     }
   /* 5 保存本地 E  */
   /* 6 获取数据 S */
     // 通过 curl 获取页面内容
     private function getString($rule, $record){
-      $url = $record['currUrl'];
-      $dir = $record['currDir'];
+      $url = $record['currURL'];
+      $dir = $record['currDIR'];
       $string = $this->curl->get($url);
       if($string) {
         K::tipS('进入页面'.$url);
@@ -345,7 +374,7 @@
     // 获取所需数据
     private function getFileData($rule,$record, $stringData){ 
       //获取文件内容;
-      $url = $record['currUrl'];
+      $url = $record['currURL'];
       $string = '{{ url || '.$url.' }}'."\r\n";
       $array = array(
         'url' => $url
@@ -384,12 +413,12 @@
       $links_result = array_unique($links_result);
       sort($links_result);
       foreach($links_result as $key => $url){
-        if(K::match($this->ignore,$url)){
+        if(K::match($this->ignoreURL,$url)){
           K::tipW('fillLink 中判断该链接为忽略类, URL: '.$url);
           array_splice($links_result,$key,1);
         }
       }
-      $links_result = K::replace($this->config['replaceLink'] , $links_result);
+      $links_result = K::replace($this->config['replaceURL'] , $links_result);
       foreach($links_result as $key => $url){
         if (in_array($url, $this->done)){
           K::tipW('fillLink 中判断该链接为已抓取, URL: '.$url);
