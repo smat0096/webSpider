@@ -14,10 +14,11 @@
     private $result = [];                               //已下载内容
     private $baseURL;                               //起始页面
     private $baseDL;                               //下载根目录
+    private $record;                               //初始记录
     private $options = array(                               //运行配置
-        'ifDownload' => false,                     //是否保存本地
-        'clearDL' => false,                               //是否清空下载目录
-        'updateDL' => false,                               //是否覆盖本地相同文件
+        'ifDownload' => true,                     //是否保存本地
+        'clearDL' => true,                               //是否清空下载目录
+        'updateDL' => true,                               //是否覆盖本地相同文件
         'ifUpload' => true,                     //是否上传数据库
         'clearDB' => true,                               //TOFIXED 是否清空数据库
         'updateDB' => true,                               //是否覆盖数据库相同记录
@@ -32,10 +33,19 @@
       $this->ignoreURL = $config['ignoreURL'];
       $this->errorTxt = $this->baseDL.'/error.txt';
       $this->detailTxt = $this->baseDL.'/detail.txt';
-      $this->init();
+      $this->record = array( //遍历路径记录
+        'currURL' => $this->baseURL,//当前URL
+        'currDIR' => $this->baseDL, //当前文件夹路径
+        'currFolder' => $this->baseDL, //当前文件夹名
+        'subURL'=>[],   //sub历史url
+        'subDIR'=>[], // sub历史dir
+        'subFolder'=>[], //sub历史文件夹名
+        'nextNum'=>0   //next递归次数;
+      );
     }
     //初始化运行环境
-    function init(){
+    //配置运行参数 options
+    private function init($options=[]){
       set_time_limit(0);//设置允许脚本运行的时间，单位为秒 ,如果设置为0，没有时间方面的限制。
      // ob_end_clean();
       echo str_pad('', 1024); // 设置足够大，受output_buffering影响
@@ -44,9 +54,6 @@
         K::tipE('<i color="red" id="over">致命: 执行失败!目标站点URL地址不合法!</i>');
         exit;
       };
-    }
-    //配置运行参数 options
-    private function pre_options($options){
       $this->options = array_merge($this->options, $options);
       if($this->options['ifUpload']){
         $this->db = new Db($this->config['DBhost']);
@@ -59,17 +66,11 @@
     //[开始抓取,动态配置参数]
     function start($options = []){
       $this->curl = new KS_curl();
-      $this->pre_options($options);
-      $record = array( //遍历路径记录
-        'currURL' => $this->baseURL,//当前URL
-        'currDIR' => $this->baseDL, //当前文件夹路径
-        'currFolder' => $this->baseDL, //当前文件夹名
-        'subURL'=>[],   //sub历史url
-        'subDIR'=>[], // sub历史dir
-        'subFolder'=>[], //sub历史文件夹名
-        'nextNum'=>0   //next递归次数;
-      );
-      $this->go($this->config['rule'],$record);
+      $this->init($options);
+      $this->go($this->config['rule'],$this->record);
+      $this->end();
+    }
+    private function end(){
       $this->curl = null;
       unset($this->curl);
       K::tip('<center><font size="30" color="red" id="over">全部抓取结束</font></center>');
@@ -78,23 +79,18 @@
   /* 2 递归筛选逻辑 S */
     // 主流程
     private function go($rule, $record ) {
-
       //前置检测
       if( !$this->pre_go($rule, $record ) ) return;
-
       //获取页面内容
       if( !$string = $this->getString($rule, $record ) ) return;
-
       //保存/上传内容
       if(isset($rule['save'])){
         $this->save($rule, $record, $string);
       }
-
       //获取sub页[子级页面], 建立文件夹
       if(isset($rule['subReg'])) {
         $this->getSub($rule, $record, $string);
       }
-
       //获取next页[兄弟页面]
       if(isset($rule['nextReg'])) {
         if(isset($rule['nextLength']) && $rule['nextLength'] > 0 && $rule['nextLength'] < $record['nextNum']){ 
@@ -339,11 +335,13 @@
       $pathSys = strtoupper($charSys) =='GBK' ? iconv('UTF-8', 'GBK', $path) : $path;
       if(file_exists($pathSys)){
         if($this->options['updateDL']){
-          K::tipP('文件已存在,执行替换');
+          K::tipP('文件已存在,执行覆盖');
         }else{
           K::tipP('文件已存在,执行跳过');
           return;
         }
+      }else{
+          K::tipP('文件不存在,执行创建');
       }
       if(K::save($data,$path,$charSys)){
         K::tipS("写入文件 ".$path);
