@@ -63,6 +63,7 @@
     }
     function __destruct(){
       curl_close($this->curl);
+      $this->curl = null;
     }
     public function set($array){
       curl_setopt_array($this->curl,$array);

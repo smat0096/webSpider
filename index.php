@@ -48,7 +48,7 @@ if(isset($_POST['submit'])){
     <script>
         //滚动
        var gundong = setInterval(function(){
-            //document.body.scrollTop = document.body.scrollHeight;
+            document.body.scrollTop = document.body.scrollHeight;
             if(document.getElementById('over')){ clearInterval(gundong); alert("抓取结束");}
         }, 2000);
         

@@ -9,7 +9,8 @@
   require_once($dir."/curl.class.php");
   class  Spider {
     private $config;                               //基本配置
-    private $db;                               //数据库对象
+    private $curl;                               //curl类实例
+    private $db;                               //数据类实例
     private $done = [];                               //已下载链接
     private $result = [];                               //已下载内容
     private $baseURL;                               //起始页面
@@ -43,6 +44,13 @@
         'nextNum'=>0   //next递归次数;
       );
     }
+
+  /* 析构方法，在对象结束之前自动销毁资源释放内存 */
+    function __destruct(){
+      $this->curl = null;
+      $this->db = null;
+    }
+
     //初始化运行环境
     //配置运行参数 options
     private function init($options=[]){
@@ -72,7 +80,7 @@
     }
     private function end(){
       $this->curl = null;
-      unset($this->curl);
+      $this->db = null;
       K::tip('<center><font size="30" color="red" id="over">全部抓取结束</font></center>');
     }
   /* 1 初始化 E */
@@ -447,7 +455,5 @@
       return $record;
     }
   /* 8 工具函数 E */
-  /* 析构方法，在对象结束之前自动销毁资源释放内存 */
-    function __destruct(){}
   }
 

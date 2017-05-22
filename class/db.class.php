@@ -20,7 +20,11 @@ class Db
 		$this->Config = array_merge($this->Config, $Config);//数据库链接信息
 		$this->connect();
 	}
-	
+
+    function __destruct(){
+      $this->db = null;
+    }
+
 	/*链接数据库*/
 	private function connect(){
 		if(!$this->db){
@@ -352,10 +356,6 @@ class Db
 			case 'both':
 				return PDO::FETCH_BOTH;
 				break;
-
-			case 'both':
-				return PDO::FETCH_NUM;
-				break;	
 
 			default:
 				return PDO::FETCH_ASSOC;
