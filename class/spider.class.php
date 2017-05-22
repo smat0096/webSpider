@@ -143,7 +143,7 @@
           return;
         }else{
           $currDIR = $dir.'/'.$title;
-          if($this->options['ifDownload']) K::mkdir($currDIR, $this->config['charsetDL']);
+          if($this->options['ifDownload']) K::mkdir($currDIR);
           $record = $this->set_record($record,array(
             'currDIR' => $currDIR, 
             'currFolder' => $title, 
@@ -310,10 +310,12 @@
     private function initDownload(){
       if(!$this->options['ifDownload']) return;
       if($this->options['clearDL']){
-        if(K::rmdir($this->baseDL)){
-          K::tipS( "清空根目录".$this->baseDL);
+        $baseDL = $this->baseDL;
+        $baseDLSys = K::isWindows() ? iconv('UTF-8', 'GBK', $baseDL) : $baseDL;
+        if(K::rmdir($this->$baseDLSys)){
+          K::tipS( "清空根目录".$baseDL);
         }else{
-          K::tipE( "清空根目录".$this->baseDL);
+          K::tipE( "清空根目录".$baseDL);
         };
       }
       //新建保存目录//
@@ -339,19 +341,7 @@
       //获取文件名及其后缀 ,如果此文件存在，则不再获取
       $path = $this->getFilePath($record['currURL'], $record['currDIR']);
       if(!$path) return;
-      $charSys = $this->config['charsetDL'];
-      $pathSys = strtoupper($charSys) =='GBK' ? iconv('UTF-8', 'GBK', $path) : $path;
-      if(file_exists($pathSys)){
-        if($this->options['updateDL']){
-          K::tipP('文件已存在,执行覆盖');
-        }else{
-          K::tipP('文件已存在,执行跳过');
-          return;
-        }
-      }else{
-          K::tipP('文件不存在,执行创建');
-      }
-      if(K::save($data,$path,$charSys)){
+      if(K::save($data,$path,$this->options['updateDL'])){
         K::tipS("写入文件 ".$path);
       }else{
         $this->logError("写入文件 ".$path);

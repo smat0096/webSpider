@@ -2,7 +2,6 @@
   //爬虫配置信息
   $CONFIG = array(
         'baseDL' => './download',    //保存根目录
-        'charsetDL' => 'GBK',       //文件系统编码 ,windows中文简体为GBK
         'baseURL' => 'http://wiki.we7shop.cn/hc/kb/category/22414/', //根页面
         'replaceGlobal' => array("{人人}" => "奇睿", '{微擎}' => '奇睿'), //全局替换
         'replaceURL' => array( "{^\/}" => "http://wiki.we7shop.cn/"), //需抓取的链接替换,用于相对地址转绝对;
